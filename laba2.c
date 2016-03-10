@@ -7,9 +7,9 @@
 #include <string.h>
 
 char *script_name = NULL;
-FILE *log = NULL;
+FILE *log = NULL;   // ToDo: use log to write output
 
-int process(char *dir_name) {
+int process(char *dir_name) {   // ToDo: add files_count and overall_size to parametres (to evaluate recursively)
     DIR *cd = opendir(dir_name);
 
     if (!cd) {
@@ -17,7 +17,7 @@ int process(char *dir_name) {
         return 1;
     }
 
-    ulong overall = 0;
+    ulong overall_size = 0;
     struct stat st;
 
     char *curr_name = alloca(strlen(dir_name) + NAME_MAX + 3);
@@ -30,9 +30,11 @@ int process(char *dir_name) {
     char *max_file = alloca(NAME_MAX);
     max_file[0] = 0;
 
-    int files_count = 0;
+    int files_count = 0;    // ToDo: move to parametres (to evaluate recursively)
 
     struct dirent *entry = alloca(sizeof(struct dirent) );
+
+    errno = 0;
     entry = readdir(cd);
 
     while (entry != NULL) {
@@ -52,7 +54,7 @@ int process(char *dir_name) {
         }
         else if (S_ISREG(st.st_mode) ) {
 //            printf("%s\n", curr_name);
-            overall += st.st_size;
+            overall_size += st.st_size;
             ++files_count;
 
             if (st.st_size > max_size)
@@ -75,7 +77,7 @@ int process(char *dir_name) {
         return 1;
     }
 
-    printf("%s %d %d %s\n", dir_name, files_count, overall, max_file);
+    printf("%s %d %d %s\n", dir_name, files_count, overall_size, max_file);
 
     return 0;
 }
@@ -86,7 +88,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    script_name = basename(argv[0]);
+    script_name = argv[0];  // ToDo: change to basename (without prefix and path)
 
     char *dir_name = argv[1];
     log = fopen(argv[2], "w");
