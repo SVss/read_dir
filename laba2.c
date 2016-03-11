@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <alloca.h>
 #include <libgen.h>
@@ -16,7 +17,7 @@ typedef struct t_res {
     unsigned long files_count;
     off_t dir_size;
     off_t max_size;
-    char max_file[NAME_MAX];
+    char max_file[PATH_MAX];
 
 } t_count_size;
 
@@ -59,30 +60,33 @@ t_count_size process(char *dir_name) {
         curr_name[curr_len] = 0;
         strcat(curr_name, entry->d_name);
 
-        if (stat(curr_name, &st) == -1) {
+        if (lstat(curr_name, &st) == -1) {
             perror(script_name);
         }
 
         if ( S_ISDIR(st.st_mode) )
         {
             if ( (strcmp(entry->d_name, ".") != 0) && (strcmp(entry->d_name, "..") != 0) )  {
-//                printf("%s\n", entry->d_name);
                 t_count_size forward = process(curr_name);
 
                 curr.dir_size += forward.dir_size;
                 curr.files_count += forward.files_count;
+
+                if (forward.max_size >= curr.max_size)
+                {
+                    curr.max_size = st.st_size;
+                    strcpy(curr.max_file, forward.max_file);
+                }
             }
         }
         else if (S_ISREG(st.st_mode) ) {
-//            printf("%s\n", curr_name);
             curr.dir_size += st.st_size;
             ++curr.files_count;
 
-            if (st.st_size > curr.max_size)
+            if (st.st_size >= curr.max_size)
             {
                 curr.max_size = st.st_size;
-                curr.max_file[0] = 0;
-                strcpy(curr.max_file, entry->d_name);
+                strcpy(curr.max_file, curr_name);
             }
         }
 
@@ -112,11 +116,18 @@ int main(int argc, char *argv[]) {
 
     script_name = basename(argv[0]);
 
-    char *dir_name = argv[1];
+    char *dir_name = realpath(argv[1], NULL);
+    if (dir_name == NULL) {
+        fprintf(stderr, "%s: Error opening directory: %s", script_name, argv[1]);
+        return 1;
+    }
+
     log_file = fopen(argv[2], "w");
 
     process(dir_name);
 
     fclose(log_file);
+
+    free(script_name);
     return 0;
 }
