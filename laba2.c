@@ -27,6 +27,14 @@ void print_dir(char *name, size_t count, off_t size, char *max_file)
     printf("%s %ld %ld %s\n", name, count, size, max_file);
 }
 
+void print_error(const char *s_name, const char *msg, const char *f_name)
+{
+    fprintf(stderr, "%s: %s %s\n", s_name, msg, (f_name)? f_name : "");
+    if (log_file) {
+        fprintf(log_file, "%s: %s %s\n", s_name, msg, (f_name)? f_name : "");
+    }
+}
+
 t_count_size process(char *dir_name) {
     t_count_size curr;
     curr.dir_size = 0;
@@ -36,7 +44,7 @@ t_count_size process(char *dir_name) {
 
     DIR *cd = opendir(dir_name);
     if (!cd) {
-        perror(script_name);
+        print_error(script_name, strerror(errno), dir_name);
         return curr;
     }
 
@@ -94,11 +102,11 @@ t_count_size process(char *dir_name) {
     }
 
     if (errno != 0) {
-        perror(script_name);
+        print_error(script_name, strerror(errno), curr_name);
     }
 
     if (closedir(cd) == -1) {
-        perror(script_name);
+        print_error(script_name, strerror(errno), dir_name);
         return curr;
     }
 
@@ -109,16 +117,16 @@ t_count_size process(char *dir_name) {
 
 
 int main(int argc, char *argv[]) {
+    script_name = basename(argv[0]);
+
     if (argc < ARGS_COUNT) {
-        fprintf(stderr, "Not enough arguments.");
+        print_error(script_name, "Not enough arguments.", 0);
         return 1;
     }
 
-    script_name = basename(argv[0]);
-
     char *dir_name = realpath(argv[1], NULL);
     if (dir_name == NULL) {
-        fprintf(stderr, "%s: Error opening directory: %s", script_name, argv[1]);
+        print_error(script_name, "Error opening directory", argv[1]);
         return 1;
     }
 
@@ -128,6 +136,5 @@ int main(int argc, char *argv[]) {
 
     fclose(log_file);
 
-    free(script_name);
     return 0;
 }
