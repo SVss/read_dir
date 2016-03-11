@@ -12,15 +12,27 @@
 char *script_name = NULL;
 FILE *log_file = NULL;   // ToDo: use log to write output
 
-void process(char *dir_name) {   // ToDo: add files_count and overall_size to parametres (to evaluate recursively)
-    DIR *cd = opendir(dir_name);
+typedef struct t_res {
+    unsigned long files_count;
+    off_t dir_size;
+    off_t max_size;
+    char max_file[NAME_MAX];
 
+} t_count_size;
+
+t_count_size process(char *dir_name) {
+    t_count_size curr;
+    curr.dir_size = 0;
+    curr.files_count = 0;
+    curr.max_file[0] = 0;
+    curr.max_size = 0;
+
+    DIR *cd = opendir(dir_name);
     if (!cd) {
         perror(script_name);
-        return;
+        return curr;
     }
 
-    ulong overall_size = 0;
     struct stat st;
 
     char *curr_name = alloca(strlen(dir_name) + NAME_MAX + 3);
@@ -29,11 +41,8 @@ void process(char *dir_name) {   // ToDo: add files_count and overall_size to pa
     strcat(curr_name, "/");
     size_t curr_len = strlen(curr_name);
 
-    off_t max_size = 0;
-    char *max_file = alloca(NAME_MAX);
-    max_file[0] = 0;
-
-    int files_count = 0;    // ToDo: move to parametres (to evaluate recursively)
+    curr.max_size = 0;
+    curr.max_file[0] = 0;
 
     struct dirent *entry = alloca(sizeof(struct dirent) );
 
@@ -52,19 +61,22 @@ void process(char *dir_name) {   // ToDo: add files_count and overall_size to pa
         {
             if ( (strcmp(entry->d_name, ".") != 0) && (strcmp(entry->d_name, "..") != 0) )  {
 //                printf("%s\n", entry->d_name);
-                process(curr_name);
+                t_count_size forward = process(curr_name);
+
+                curr.dir_size += forward.dir_size;
+                curr.files_count += forward.files_count;
             }
         }
         else if (S_ISREG(st.st_mode) ) {
 //            printf("%s\n", curr_name);
-            overall_size += st.st_size;
-            ++files_count;
+            curr.dir_size += st.st_size;
+            ++curr.files_count;
 
-            if (st.st_size > max_size)
+            if (st.st_size > curr.max_size)
             {
-                max_size = st.st_size;
-                max_file[0] = 0;
-                strcpy(max_file, entry->d_name);
+                curr.max_size = st.st_size;
+                curr.max_file[0] = 0;
+                strcpy(curr.max_file, entry->d_name);
             }
         }
 
@@ -77,10 +89,12 @@ void process(char *dir_name) {   // ToDo: add files_count and overall_size to pa
 
     if (closedir(cd) == -1) {
         perror(script_name);
-        return;
+        return curr;
     }
 
-    printf("%s %d %ld %s\n", dir_name, files_count, overall_size, max_file);
+    printf("%s %ld %ld %s\n", dir_name, curr.files_count, curr.dir_size, curr.max_file);
+
+    return curr;
 }
 
 
