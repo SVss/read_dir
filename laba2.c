@@ -10,7 +10,7 @@
 #define ARGS_COUNT 3
 
 char *script_name = NULL;
-FILE *log_file = NULL;   // ToDo: use log to write output
+FILE *log_file = NULL;
 
 typedef struct t_res {
     unsigned long files_count;
@@ -19,6 +19,12 @@ typedef struct t_res {
     char max_file[NAME_MAX];
 
 } t_count_size;
+
+void print_dir(char *name, size_t count, off_t size, char *max_file)
+{
+    fprintf(log_file, "%s %ld %ld %s\n", name, count, size, max_file);
+    printf("%s %ld %ld %s\n", name, count, size, max_file);
+}
 
 t_count_size process(char *dir_name) {
     t_count_size curr;
@@ -92,7 +98,7 @@ t_count_size process(char *dir_name) {
         return curr;
     }
 
-    printf("%s %ld %ld %s\n", dir_name, curr.files_count, curr.dir_size, curr.max_file);
+    print_dir(dir_name, curr.files_count, curr.dir_size, curr.max_file);
 
     return curr;
 }
