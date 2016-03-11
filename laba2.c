@@ -21,6 +21,9 @@ typedef struct t_res {
 
 } t_count_size;
 
+static const t_count_size EMPTY_T_COUNT_SIZE;
+
+
 void print_dir(char *name, size_t count, off_t size, char *max_file)
 {
     printf("%s %ld %ld %s\n", name, count, size, max_file);
@@ -37,17 +40,13 @@ void print_error(const char *s_name, const char *msg, const char *f_name)
     }
 }
 
-t_count_size process(char *dir_name) {
-    t_count_size curr;
-    curr.dir_size = 0;
-    curr.files_count = 0;
-    curr.max_file[0] = 0;
-    curr.max_size = 0;
+void process(char *dir_name) {
+    t_count_size curr = EMPTY_T_COUNT_SIZE;
 
     DIR *cd = opendir(dir_name);
     if (!cd) {
         print_error(script_name, strerror(errno), dir_name);
-        return curr;
+        return;
     }
 
     struct stat st;
@@ -77,30 +76,21 @@ t_count_size process(char *dir_name) {
         if ( S_ISDIR(st.st_mode) )
         {
             if ( (strcmp(entry->d_name, ".") != 0) && (strcmp(entry->d_name, "..") != 0) )  {
-                t_count_size forward = process(curr_name);
+                process(curr_name);
 
-                curr.dir_size += forward.dir_size;
-                curr.files_count += forward.files_count;
-
-                if (forward.max_size >= curr.max_size)
-                {
-                    curr.max_size = st.st_size;
-                    strcpy(curr.max_file, forward.max_file);
-                }
-
-                ++curr.files_count;
-                curr.dir_size += st.st_size;
+                ++curr.files_count;             // < really need
+                curr.dir_size += st.st_size;    // <  to consider directories ?
             }
         }
-        else if (S_ISREG(st.st_mode) ) {
-            curr.dir_size += st.st_size;
-            ++curr.files_count;
-
-            if (st.st_size >= curr.max_size)
-            {
+        else if (S_ISREG(st.st_mode) )
+        {
+            if (st.st_size >= curr.max_size) {
                 curr.max_size = st.st_size;
                 strcpy(curr.max_file, curr_name);
             }
+
+            ++curr.files_count;
+            curr.dir_size += st.st_size;
         }
 
         entry = readdir(cd);
@@ -112,12 +102,12 @@ t_count_size process(char *dir_name) {
 
     if (closedir(cd) == -1) {
         print_error(script_name, strerror(errno), dir_name);
-        return curr;
+        return;
     }
 
     print_dir(dir_name, curr.files_count, curr.dir_size, curr.max_file);
 
-    return curr;
+    return;
 }
 
 
