@@ -1,20 +1,23 @@
 #include <stdio.h>
 #include <errno.h>
-#include <unistd.h>
+#include <alloca.h>
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <string.h>
 
-char *script_name = NULL;
-FILE *log = NULL;   // ToDo: use log to write output
+#define ARGS_COUNT 3
 
-int process(char *dir_name) {   // ToDo: add files_count and overall_size to parametres (to evaluate recursively)
+char *script_name = NULL;
+FILE *log_file = NULL;   // ToDo: use log to write output
+
+void process(char *dir_name) {   // ToDo: add files_count and overall_size to parametres (to evaluate recursively)
     DIR *cd = opendir(dir_name);
 
     if (!cd) {
         perror(script_name);
-        return 1;
+        return;
     }
 
     ulong overall_size = 0;
@@ -26,7 +29,7 @@ int process(char *dir_name) {   // ToDo: add files_count and overall_size to par
     strcat(curr_name, "/");
     size_t curr_len = strlen(curr_name);
 
-    size_t max_size = 0;
+    off_t max_size = 0;
     char *max_file = alloca(NAME_MAX);
     max_file[0] = 0;
 
@@ -74,27 +77,26 @@ int process(char *dir_name) {   // ToDo: add files_count and overall_size to par
 
     if (closedir(cd) == -1) {
         perror(script_name);
-        return 1;
+        return;
     }
 
-    printf("%s %d %d %s\n", dir_name, files_count, overall_size, max_file);
-
-    return 0;
+    printf("%s %d %ld %s\n", dir_name, files_count, overall_size, max_file);
 }
 
+
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
+    if (argc < ARGS_COUNT) {
         fprintf(stderr, "Not enough arguments.");
         return 1;
     }
 
-    script_name = argv[0];  // ToDo: change to basename (without prefix and path)
+    script_name = basename(argv[0]);
 
     char *dir_name = argv[1];
-    log = fopen(argv[2], "w");
+    log_file = fopen(argv[2], "w");
 
     process(dir_name);
 
-    fclose(log);
+    fclose(log_file);
     return 0;
 }
