@@ -23,8 +23,10 @@ typedef struct t_res {
 
 void print_dir(char *name, size_t count, off_t size, char *max_file)
 {
-    fprintf(log_file, "%s %ld %ld %s\n", name, count, size, max_file);
     printf("%s %ld %ld %s\n", name, count, size, max_file);
+    if (log_file) {
+        fprintf(log_file, "%s %ld %ld %s\n", name, count, size, max_file);
+    }
 }
 
 void print_error(const char *s_name, const char *msg, const char *f_name)
@@ -85,6 +87,9 @@ t_count_size process(char *dir_name) {
                     curr.max_size = st.st_size;
                     strcpy(curr.max_file, forward.max_file);
                 }
+
+                ++curr.files_count;
+                curr.dir_size += st.st_size;
             }
         }
         else if (S_ISREG(st.st_mode) ) {
@@ -130,11 +135,15 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    log_file = fopen(argv[2], "w");
+    if ( (log_file = fopen(argv[2], "w") ) == NULL) {
+        print_error(script_name, "Can't open log-file.", argv[2]);
+    }
 
     process(dir_name);
 
-    fclose(log_file);
+    if (log_file) {
+        fclose(log_file);
+    }
 
     return 0;
 }
