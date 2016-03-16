@@ -78,15 +78,15 @@ void process(char *dir_name) {
             if ( (strcmp(entry->d_name, ".") != 0) && (strcmp(entry->d_name, "..") != 0) )  {
                 process(curr_name);
 
-                ++curr.files_count;             // < really need
-                curr.dir_size += st.st_size;    // <  to consider directories ?
+                ++curr.files_count;
+                curr.dir_size += st.st_size;
             }
         }
         else if (S_ISREG(st.st_mode) )
         {
             if (st.st_size >= curr.max_size) {
                 curr.max_size = st.st_size;
-                strcpy(curr.max_file, curr_name);
+                strcpy(curr.max_file, entry->d_name);
             }
 
             ++curr.files_count;
