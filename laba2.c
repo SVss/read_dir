@@ -9,6 +9,7 @@
 #include <string.h>
 
 #define ARGS_COUNT 3
+#define INODES_SIZE 255
 
 char *script_name = NULL;
 FILE *log_file = NULL;
@@ -17,7 +18,7 @@ typedef struct t_res {
     unsigned long files_count;
     off_t dir_size;
     off_t max_size;
-    char max_file[PATH_MAX];
+    char max_file[NAME_MAX];
 
 } t_count_size;
 
@@ -49,51 +50,66 @@ void process(char *dir_name) {
         return;
     }
 
-    struct stat st;
-
     char *curr_name = alloca(strlen(dir_name) + NAME_MAX + 3);
     curr_name[0] = 0;
     strcat(curr_name, dir_name);
     strcat(curr_name, "/");
-    size_t curr_len = strlen(curr_name);
+    size_t curr_name_len = strlen(curr_name);
 
     curr.max_size = 0;
     curr.max_file[0] = 0;
 
     struct dirent *entry = alloca(sizeof(struct dirent) );
+    struct stat st;
+
+    size_t ilist_len = INODES_SIZE;
+    ino_t *ilist = malloc(ilist_len * sizeof(ino_t) );
+    int ilist_next = 0;
 
     errno = 0;
-    entry = readdir(cd);
 
-    while (entry != NULL) {
-        curr_name[curr_len] = 0;
+    while ( (entry = readdir(cd) ) ) {
+        curr_name[curr_name_len] = 0;
         strcat(curr_name, entry->d_name);
 
         if (lstat(curr_name, &st) == -1) {
-            perror(script_name);
+            print_error(script_name, strerror(errno), curr_name);
         }
+        else {
+            ino_t ino = st.st_ino;
 
-        if ( S_ISDIR(st.st_mode) )
-        {
-            if ( (strcmp(entry->d_name, ".") != 0) && (strcmp(entry->d_name, "..") != 0) )  {
-                process(curr_name);
-
-                ++curr.files_count;
-                curr.dir_size += st.st_size;
-            }
-        }
-        else if (S_ISREG(st.st_mode) )
-        {
-            if (st.st_size >= curr.max_size) {
-                curr.max_size = st.st_size;
-                strcpy(curr.max_file, entry->d_name);
+            if (ilist_next == ilist_len) {
+                ilist_len *= 2;
+                ilist = (ino_t*)realloc(ilist, ilist_len*sizeof(ino_t) );
             }
 
-            ++curr.files_count;
-            curr.dir_size += st.st_size;
-        }
+            int i = 0;
+            while ( (i < ilist_next) && (ino != ilist[i]) )
+                ++i;
 
-        entry = readdir(cd);
+            if (i == ilist_next)
+            {
+                ilist[ilist_next] = ino;
+                ++ilist_next;
+
+                if ( S_ISDIR(st.st_mode) )
+                {
+                    if ( (strcmp(entry->d_name, ".") != 0) && (strcmp(entry->d_name, "..") != 0) )  {
+                        process(curr_name);
+                    }
+                }
+                else if ( S_ISREG(st.st_mode) )
+                {
+                    if (st.st_size >= curr.max_size) {
+                        curr.max_size = st.st_size;
+                        strcpy(curr.max_file, entry->d_name);
+                    }
+
+                    ++curr.files_count;
+                    curr.dir_size += st.st_size;
+                }
+            }
+        }
     }
 
     if (errno != 0) {
@@ -102,11 +118,12 @@ void process(char *dir_name) {
 
     if (closedir(cd) == -1) {
         print_error(script_name, strerror(errno), dir_name);
-        return;
+    }
+    else {
+        print_dir(dir_name, curr.files_count, curr.dir_size, curr.max_file);
     }
 
-    print_dir(dir_name, curr.files_count, curr.dir_size, curr.max_file);
-
+    free(ilist);
     return;
 }
 
@@ -132,7 +149,8 @@ int main(int argc, char *argv[]) {
     process(dir_name);
 
     if (log_file) {
-        fclose(log_file);
+        if (fclose(log_file) == -1)
+            print_error(script_name, "Error closing logfile", realpath(argv[2], NULL) );
     }
 
     return 0;
