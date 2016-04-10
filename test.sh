@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# count files in directories
+
 IFS=$'\n'
 ERR_LOG="/tmp/err.log"
 
